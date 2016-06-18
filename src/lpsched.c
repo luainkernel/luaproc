@@ -24,63 +24,63 @@
 #define luaproc_resume( L, from, nargs ) lua_resume( L, nargs )
 #endif
 
-/********************
- * global variables *
- *******************/
+	/********************
+	 * global variables *
+	 *******************/
 
-/* ready process list */
-list ready_lp_list;
+	/* ready process list */
+	list ready_lp_list;
 
-/* ready process queue access mutex */
-lpthread_mutex_t mutex_sched = LPTHREAD_MUTEX_INITIALIZER;
+	/* ready process queue access mutex */
+	lpthread_mutex_t mutex_sched = LPTHREAD_MUTEX_INITIALIZER;
 
-/* active luaproc count access mutex */
-lpthread_mutex_t mutex_lp_count = LPTHREAD_MUTEX_INITIALIZER;
+	/* active luaproc count access mutex */
+	lpthread_mutex_t mutex_lp_count = LPTHREAD_MUTEX_INITIALIZER;
 
-/* wake worker up conditional variable */
-lpthread_cond_t cond_wakeup_worker = LPTHREAD_COND_INITIALIZER;
+	/* wake worker up conditional variable */
+	lpthread_cond_t cond_wakeup_worker = LPTHREAD_COND_INITIALIZER;
 
-/* no active luaproc conditional variable */
-lpthread_cond_t cond_no_active_lp = LPTHREAD_COND_INITIALIZER;
+	/* no active luaproc conditional variable */
+	lpthread_cond_t cond_no_active_lp = LPTHREAD_COND_INITIALIZER;
 
-/* lua_State used to store workers hash table */
-static lua_State *workerls = NULL;
+	/* lua_State used to store workers hash table */
+	static lua_State *workerls = NULL;
 
-int lpcount = 0;         /* number of active luaprocs */
-int workerscount = 0;    /* number of active workers */
-int destroyworkers = 0;  /* number of workers to destroy */
+	int lpcount = 0;         /* number of active luaprocs */
+	int workerscount = 0;    /* number of active workers */
+	int destroyworkers = 0;  /* number of workers to destroy */
 
-/***********************
- * register prototypes *
- ***********************/
+	/***********************
+	 * register prototypes *
+	 ***********************/
 
-static void sched_dec_lpcount( void );
+	static void sched_dec_lpcount( void );
 
-/*******************************
- * worker thread main function *
- *******************************/
+	/*******************************
+	 * worker thread main function *
+	 *******************************/
 
-/* worker thread main function */
-void *workermain( void *args ) {
+	/* worker thread main function */
+	void *workermain( void *args ) {
 
-  luaproc *lp;
-  int procstat;
+	  luaproc *lp;
+	  int procstat;
 
-  /* main worker loop */
-  while ( TRUE ) {
-    /*
-      wait until instructed to wake up (because there's work to do
-      or because workers must be destroyed)
-    */
-    lpthread_mutex_lock( &mutex_sched );
-    while (( list_count( &ready_lp_list ) == 0 ) && ( destroyworkers <= 0 )) {
-      lpthread_cond_wait( &cond_wakeup_worker, &mutex_sched );
-    }
+	  /* main worker loop */
+	  while ( TRUE ) {
+	    /*
+	      wait until instructed to wake up (because there's work to do
+	      or because workers must be destroyed)
+	    */
+	    lpthread_mutex_lock( &mutex_sched );
+	    while (( list_count( &ready_lp_list ) == 0 ) && ( destroyworkers <= 0 )) {
+	      lpthread_cond_wait( &cond_wakeup_worker, &mutex_sched );
+	    }
 
-    if ( destroyworkers > 0 ) {  /* check whether workers should be destroyed */
-      
-      destroyworkers--; /* decrease workers to be destroyed count */
-      workerscount--; /* decrease active workers count */
+	    if ( destroyworkers > 0 ) {  /* check whether workers should be destroyed */
+	      
+	      destroyworkers--; /* decrease workers to be destroyed count */
+	      workerscount--; /* decrease active workers count */
 
       /* remove worker from workers table */
       lua_getglobal( workerls, LUAPROC_SCHED_WORKERS_TABLE );

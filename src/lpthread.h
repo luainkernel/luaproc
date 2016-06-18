@@ -14,6 +14,13 @@
 #define lpthread_barrier_t pthread_barrier_t
 #define lpthread_barrierattr_t pthread_barrierattr_t
 #define lpthread_condattr_t pthread_condattr_t
+#define lpclockid_t clockid_t
+#define lpthread_key_t pthread_key_t
+#define lpthread_mutexattr_t pthread_mutexattr_t
+#define lpthread_once_t pthread_once_t
+#define lpthread_rwlock_t pthread_rwlock_t
+#define lpthread_rwlockattr_t pthread_rwlockattr_t
+#define lpthread_spinlock_t pthread_spinlock_t
 
 #define LPTHREAD_COND_INITIALIZER   PTHREAD_COND_INITIALIZER
 #define LPTHREAD_MUTEX_INITIALIZER  PTHREAD_MUTEX_INITIALIZER
@@ -74,13 +81,70 @@
 #define lpthread_cond_broadcast(cond) pthread_cond_broadcast(cond)
 #define lpthread_cond_destroy(cond) pthread_cond_destroy(cond)
 #define lpthread_cond_timedwait(cond, mutex, abstime) pthread_cond_timedwait(cond, mutex, abstime)
+#define lpthread_condattr_destroy(attr) pthread_condattr_destroy(attr)
+#define lpthread_condattr_init(attr) pthread_condattr_init(attr)
+#define lpthread_condattr_getclock(attr, clock_id) pthread_condattr_getlock(attr, clock_id)
+#define lpthread_condattr_setclock(attr, clock_id) pthread_condattr_setclock(attr, clock_id)
+#define lpthread_condattr_getpshared(attr, pshared) pthread_condattr_getpshared(attr, pshared)
+#define lpthread_condattr_setpshared(attr, pshared) pthread_condattr_setpshared(attr, pshared)
+#define lpthread_detach(thread) pthread_detach(thread)
+#define lpthread_equal(thread1, thread2) pthread_equal(thread1, thread2)
+#define lpthread_getconcurrency() pthread_getconcurrency()
+#define lpthread_getcpuclockid(threadid, clock_id) pthread_getcpuclockid(threadid, clock_id)
+#define lpthread_getschedparam(thread, policy, param) pthread_getschedparam(thread, policy, param)
+#define lpthread_getspecific(key) pthread_getspecific(key)
+#define lpthread_join(thread, value_ptr) pthread_join(thread, value_ptr)
+#define lpthread_key_create(key, destructor) pthread_key_create(key, destructor)
+#define lpthread_key_delete(key) pthread_key_delete(key)
+#define lpthread_kill(thread, sig) pthread_kill(thread, sig)
+#define lpthread_mutex_destroy(mutex) pthread_mutex_destroy(mutex)
+#define lpthread_mutex_getprioceiling(mutex, prioceiling) pthread_mutex_getprioceiling(mutex, prioceiling)
+#define lpthread_mutex_setprioceiling(mutex, prioceiling, old_ceiling) pthread_mutex_setprioceiling(mutex, prioceiling, old_ceiling)
+#define lpthread_mutex_timedlock(mutex, abs_time) pthread_mutex_timedlock(mutex, abs_time)
 #define lpthread_exit(retval) pthread_exit(retval)
 #define lpthread_mutex_init(mutex, attr) pthread_mutex_init(mutex, attr)   
 #define lpthread_mutex_lock(mutex) pthread_mutex_lock(mutex)
 #define lpthread_mutex_trylock(mutex) pthread_mutex_trylock(mutex)
 #define lpthread_mutex_unlock(mutex) pthread_mutex_unlock(mutex)
 #define lpthread_mutex_destroy(mutex) pthread_mutex_destroy(mutex)
-
+#define lpthread_mutexattr_destroy(attr) pthread_mutexattr_destroy(attr)
+#define lpthread_mutexattr_getprioceiling(attr, prioceiling) pthread_mutexattr_getprioceiling(attr, prioceiling)
+#define lpthread_mutexattr_getprotocol(attr, protocol) pthread_mutexattr_getprotocol(attr, protocol)
+#define lpthread_mutexattr_getpshared(attr, pshared) pthread_mutexattr_getpshared(attr, pshared)
+#define lpthread_mutexattr_gettype(attr, type) pthread_mutexattr_gettype(attr, type)
+#define lpthread_mutexattr_init(attr) pthread_mutexattr_init(attr)
+#define lpthread_mutexattr_setprioceiling(attr, prioceiling) pthread_mutexattr_setprioceiling(attr, prioceiling)
+#define lpthread_mutexattr_setprotocol(attr, protocol) pthread_mutexattr_setprotocol(attr, protocol)
+#define lpthread_mutexattr_setpshared(attr, pshared) pthread_mutexattr_setpshared(attr, pshared)
+#define lpthread_mutexattr_settype(attr, type) pthread_mutexattr_settype(attr, type)
+#define lpthread_once(once_control, init_routine) pthread_once(once_control, init_routine)
+#define lpthread_rwlock_destroy(rwlock) pthread_rwlock_destroy(rwlock)
+#define lpthread_rwlock_init(rwlock, attr) pthread_rwlock_init(rwlock, attr)
+#define lpthread_rwlock_rdlock(rwlock) pthread_rwlock_rdlock(rwlock)
+#define lpthread_rwlock_timedrdlock(rwlock, abstime) pthread_rwlock_timedrdlock(rwlock, abstime)
+#define lpthread_rwlock_timedwrlock(rwlock, abstimeout) pthread_rwlock_timedwrlock(rwlock, abstimeout)
+#define lpthread_rwlock_tryrdlock(rwlock) pthread_rwlock_tryrdlock(rwlock)
+#define lpthread_rwlock_trywrlock(rwlock) pthread_rwlock_trywrlock(rwlock)
+#define lpthread_rwlock_unlock(rwlock) pthread_rwlock_unlock(rwlock)
+#define lpthread_rwlock_wrlock(rwlock) pthread_rwlock_wrlock(rwlock)
+#define lpthread_rwlockattr_destroy(attr) pthread_rwlockattr_destroy(attr)
+#define lpthread_rwlockattr_getpshared(attr, pshared) pthread_rwlockattr_getpshared(attr, pshared)
+#define lpthread_rwlockattr_init(attr) pthread_rwlockattr_init(attr)
+#define lpthread_rwlockattr_setpshared(attr, pshared) pthread_rwlockattr_setpshared(attr, pshared)
+#define lpthread_self() pthread_self()
+#define lpthread_setcancelstate(state, oldstate) pthread_setcancelstate(state, oldstate)
+#define lpthread_setcanceltype(type, oldtype) pthread_setcanceltype(type, oldtype)
+#define lpthread_setconcurrency(newlvl) pthread_setconcurrency(newlvl)
+#define lpthread_setschedparam(thread, policy, param) pthread_setschedparam(thread, policy, param)
+#define lpthread_setschedprio(thread, prio) pthread_setschedprio(thread, prio)
+#define lpthread_setspecific(key, value) pthread_setspecific(key, value)
+#define lpthread_sigmask(how, set, oset) pthread_sigmask(how, set, oset)
+#define lpthread_spin_destroy(lock) pthread_spin_destroy(lock)
+#define lpthread_spin_init(lock, pshared) pthread_spin_init(lock, pshared)
+#define lpthread_spin_lock(lock) pthread_spin_lock(lock)
+#define lpthread_spin_trylock(lock) pthread_spin_trylock(lock)
+#define lpthread_spin_unlock(lock) pthread_spin_unlock(lock)
+#define lpthread_testcancel() pthread_testcancel()
 
 #else
 #error Not Supported
