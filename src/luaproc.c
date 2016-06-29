@@ -78,10 +78,10 @@
  *******************/
 
 /* channel list mutex */
-static lpthread_mutex_t mutex_channel_list = LPTHREAD_MUTEX_INITIALIZER;
+static lpthread_mutex_t INIT_MUTEX(mutex_channel_list);
 
 /* recycle list mutex */
-static lpthread_mutex_t mutex_recycle_list = LPTHREAD_MUTEX_INITIALIZER;
+static lpthread_mutex_t INIT_MUTEX(mutex_recycle_list);
 
 /* recycled lua process list */
 static list recycle_list;
@@ -97,10 +97,10 @@ static lua_State *chanls = NULL;
 static luaproc mainlp;
 
 /* main state matched a send/recv operation conditional variable */
-lpthread_cond_t cond_mainls_sendrecv = LPTHREAD_COND_INITIALIZER;
+lpthread_cond_t INIT_COND(cond_mainls_sendrecv);
 
 /* main state communication mutex */
-static lpthread_mutex_t mutex_mainls = LPTHREAD_MUTEX_INITIALIZER;
+static lpthread_mutex_t INIT_MUTEX(mutex_mainls);
 
 /***********************
  * register prototypes *
@@ -406,7 +406,6 @@ static luaproc *luaproc_new( lua_State *L ) {
   /* register luaproc's own functions */
   requiref( lpst, "luaproc", luaproc_loadlib, TRUE );
   lp->lstate = lpst;  /* insert created lua state into lua process struct */
-
   return lp;
 }
 
