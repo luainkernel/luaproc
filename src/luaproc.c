@@ -3,6 +3,7 @@
 ** See Copyright Notice in luaproc.h
 */
 
+#include <string.h>
 #include <stdlib.h>
 #include <lua.h>
 #include <lauxlib.h>
@@ -431,6 +432,15 @@ static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto,
   int i = 1;
   const char *str;
   size_t len;
+  //luasockets metatable names
+  //grep -r auxiliar_newclass
+  char* metanames[9] = { "serial{client}", "tcp{master}",
+	  		 "tcp{client}", "tcp{server}",
+			 "udp{connected}",
+			 "udp{unconnected", "unix{master}",
+			 "unix{client}", "unix{server}"};
+  void* new_udata;
+
 
   /* test the type of each upvalue and, if it's supported, copy it */
   while ( lua_getupvalue( Lfrom, funcindex, i ) != NULL ) {
@@ -462,6 +472,12 @@ static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto,
           break;
         }
         lua_pop( Lfrom, 1 );
+	case LUA_TUSERDATA:
+	 //copy raw userdata
+	 new_udata = lua_newuserdata(Lto, lua_rawlen(Lfrom, -1));
+	 memcpy(new_udata, lua_touserdata(Lfrom, -1), lua_rawlen(Lfrom, -1));
+	//copy raw metatable
+		
         /* FALLTHROUGH */
       default: /* value type not supported: table, function, userdata, etc. */
         lua_pushnil( Lfrom );
