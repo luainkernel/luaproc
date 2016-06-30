@@ -440,7 +440,7 @@ static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto,
 			 "udp{unconnected", "unix{master}",
 			 "unix{client}", "unix{server}"};
   void* new_udata;
-
+  int k, j, tablesz;
 
   /* test the type of each upvalue and, if it's supported, copy it */
   while ( lua_getupvalue( Lfrom, funcindex, i ) != NULL ) {
@@ -473,10 +473,27 @@ static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto,
         }
         lua_pop( Lfrom, 1 );
 	case LUA_TUSERDATA:
-	 //copy raw userdata
+	 //copy userdata
 	 new_udata = lua_newuserdata(Lto, lua_rawlen(Lfrom, -1));
 	 memcpy(new_udata, lua_touserdata(Lfrom, -1), lua_rawlen(Lfrom, -1));
-	//copy raw metatable
+	//copy metatable
+	 for(k = 0; k < 9; k++)
+	   {
+	     luaL_getmetatable(Lfrom, metanames[i]);
+	     luaL_newmetatable(Lto, metanames[i]);
+	     tablesz = luaL_len(Lfrom, -1);
+	     for(j = 1; j <= tablesz; j++)
+	       {
+		 lua_rawgeti(Lfrom, -1, j);
+		 /* Test lua_type() and push to Lto */
+		 //...
+		 lua_rawseti(Lto, -2, j);
+		 lua_pop(Lfrom, 1);
+	       }
+	     lua_setmetatable(Lto, -2);
+	   }
+
+	 break;
 		
         /* FALLTHROUGH */
       default: /* value type not supported: table, function, userdata, etc. */
