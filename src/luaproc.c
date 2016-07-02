@@ -11,7 +11,6 @@
 
 #include "luaproc.h"
 #include "lpsched.h"
-//new
 #include "lpthread.h"
 
 #define FALSE 0
@@ -432,15 +431,8 @@ static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto,
   int i = 1;
   const char *str;
   size_t len;
-  //luasockets metatable names
-  //grep -r auxiliar_newclass
-  char* metanames[9] = { "serial{client}", "tcp{master}",
-	  		 "tcp{client}", "tcp{server}",
-			 "udp{connected}",
-			 "udp{unconnected", "unix{master}",
-			 "unix{client}", "unix{server}"};
   void* new_udata;
-  int k, j, tablesz;
+  size_t udatasz;
 
   /* test the type of each upvalue and, if it's supported, copy it */
   while ( lua_getupvalue( Lfrom, funcindex, i ) != NULL ) {
@@ -474,25 +466,11 @@ static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto,
         lua_pop( Lfrom, 1 );
 	case LUA_TUSERDATA:
 	 //copy userdata
-	 new_udata = lua_newuserdata(Lto, lua_rawlen(Lfrom, -1));
-	 memcpy(new_udata, lua_touserdata(Lfrom, -1), lua_rawlen(Lfrom, -1));
-	//copy metatable
-	 for(k = 0; k < 9; k++)
-	   {
-	     luaL_getmetatable(Lfrom, metanames[i]);
-	     luaL_newmetatable(Lto, metanames[i]);
-	     tablesz = luaL_len(Lfrom, -1);
-	     for(j = 1; j <= tablesz; j++)
-	       {
-		 lua_rawgeti(Lfrom, -1, j);
-		 /* Test lua_type() and push to Lto */
-		 //...
-		 lua_rawseti(Lto, -2, j);
-		 lua_pop(Lfrom, 1);
-	       }
-	     lua_setmetatable(Lto, -2);
-	   }
-
+	 udatasz = lua_rawlen(Lfrom, -1);
+	 new_udata = lua_newuserdata(Lto, udatasz);
+	 memcpy(new_udata, lua_touserdata(Lfrom, -1), udatasz);
+	 luaL_dostring(Lto, "require'socket'");
+	 luaL_setmetatable(Lto, "tcp{client}");
 	 break;
 		
         /* FALLTHROUGH */
