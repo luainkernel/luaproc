@@ -469,8 +469,45 @@ static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto,
 	 udatasz = lua_rawlen(Lfrom, -1);
 	 new_udata = lua_newuserdata(Lto, udatasz);
 	 memcpy(new_udata, lua_touserdata(Lfrom, -1), udatasz);
-	 luaL_dostring(Lto, "require'socket'");
-	 luaL_setmetatable(Lto, "tcp{client}");
+	 if(lua_getmetatable(Lfrom, -1) == TRUE)
+	 {
+		#if (LUA_VERSION_NUM >= 503)
+		 lua_getfield(Lfrom, -1, "__name");
+		 luaL_newmetatable(Lto, lua_tostring(Lfrom, -1));
+		 lua_pop(Lfrom, 1);
+		 //iterate all metatable pairs (key-value)
+		 lua_pushnil(Lfrom);
+		 while(lua_next(Lfrom, -2) != FALSE)
+		 {	
+			//make sure key it's a string
+			if(lua_type(Lfrom, -2) == LUA_TSTRING)
+			{
+				lua_pushstring(Lto, lua_tostring(Lfrom, -2));
+				if(lua_iscfunction(Lfrom, -1))
+				{
+					lua_pushcfunction(Lto, lua_tocfunction(Lfrom, -1));
+				}
+				else switch(lua_type(Lfrom, -1))
+				{
+					case LUA_TNIL:
+						lua_pushnil(Lto);
+						break;
+					case LUA_TSTRING:
+						lua_pushstring(Lto, lua_tostring(Lfrom, -1));
+						break;
+					case LUA_TNUMBER:
+						copynumber(Lto, Lfrom, -1);
+						break;
+				}
+				lua_settable(Lto, -3);
+
+			}
+			 lua_pop(Lfrom, 1);
+		 }
+
+		#endif
+		lua_pop(Lfrom, 1);	 
+	 }
 	 break;
 		
         /* FALLTHROUGH */
