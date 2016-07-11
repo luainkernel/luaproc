@@ -439,7 +439,7 @@ static int copyuserdata(lua_State *Lfrom, lua_State *Lto) {
 	  lua_pop(Lfrom, 1);
 	  //iterate all metatable pairs (key-value)
 	  lua_pushnil(Lfrom);
-	  while(lua_next(Lfrom, -1) != FALSE) {
+	  while(lua_next(Lfrom, 2) != FALSE) {
 		  //make sure key it's a string
 		  if(lua_type(Lfrom, -2) == LUA_TSTRING) {
 			  lua_pushstring(Lto, lua_tostring(Lfrom, -2));
@@ -461,6 +461,7 @@ static int copyuserdata(lua_State *Lfrom, lua_State *Lto) {
 		  lua_pop(Lfrom, 1); //pop value
 	  }
 	  lua_pop(Lfrom, 1); //pop metatable
+	  lua_pop(Lto, 1); //pop metatable
   }
   return TRUE;
 }
