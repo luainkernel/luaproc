@@ -424,6 +424,46 @@ static int luaproc_buff_writer( lua_State *L, const void *buff, size_t size,
   return 0;
 }
 
+/* copies userdata between lua states, and attributes their respective metatable (if there's any) */
+static int luaproc_copyuserdata(lua_State *Lfrom, lua_State *Lto) {
+	 void* new_udata;
+	  size_t udatasz;
+	  //copy userdata
+	  udatasz = lua_rawlen(Lfrom, -1);
+	  new_udata = lua_newuserdata(Lto, udatasz);
+	  memcpy(new_udata, lua_touserdata(Lfrom, -1), udatasz);
+	  if(lua_getmetatable(Lfrom, -1) == TRUE) {
+		  if(lua_getfield(Lfrom, -1, "__name") == LUA_TNIL)
+			  return luaL_error(Lfrom, "can't get __name at userdata's metatable");
+		  luaL_newmetatable(Lto, lua_tostring(Lfrom, -1));
+		  lua_pop(Lfrom, 1);
+		  //iterate all metatable pairs (key-value)
+		  lua_pushnil(Lfrom);
+		  while(lua_next(Lfrom, -2) != FALSE) {
+			  //make sure key it's a string
+			  if(lua_type(Lfrom, -2) == LUA_TSTRING) {
+				  lua_pushstring(Lto, lua_tostring(Lfrom, -2));
+				  switch(lua_type(Lfrom, -1)) {
+				  case LUA_TSTRING:
+					  lua_pushstring(Lto, lua_tostring(Lfrom, -1));
+					  break;
+				  case LUA_TNUMBER:
+					  copynumber(Lto, Lfrom, -1);
+					  break;
+				  case LUA_TFUNCTION:
+					  if(lua_iscfunction(Lfrom, -1)) {
+						  lua_pushcfunction(Lto, lua_tocfunction(Lfrom, -1));
+					  }
+					  break;
+				  }
+				  lua_settable(Lto, -3);
+			  }
+			  lua_pop(Lfrom, 1); //pop value
+		  }
+		  lua_pop(Lfrom, 1); //pop metatable
+	  }
+	  return TRUE;
+}
 /* copies upvalues between lua states' stacks */
 static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto, 
                                  int funcindex ) {
@@ -431,8 +471,6 @@ static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto,
   int i = 1;
   const char *str;
   size_t len;
-  void* new_udata;
-  size_t udatasz;
 
   /* test the type of each upvalue and, if it's supported, copy it */
   while ( lua_getupvalue( Lfrom, funcindex, i ) != NULL ) {
@@ -451,6 +489,12 @@ static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto,
       case LUA_TNIL:
         lua_pushnil( Lto );
         break;
+
+#if (LUA_VERSION_NUM >= 503)
+      case LUA_TUSERDATA:
+    	  luaproc_copyuserdata(Lfrom, Lto);
+    	  break;
+#endif
       /* if upvalue is a table, check whether it is the global environment
          (_ENV) from the source state Lfrom. in case so, push in the stack of
          the destination state Lto its own global environment to be set as the
@@ -464,54 +508,8 @@ static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto,
           break;
         }
         lua_pop( Lfrom, 1 );
-	case LUA_TUSERDATA:
-	 //copy userdata
-	 udatasz = lua_rawlen(Lfrom, -1);
-	 new_udata = lua_newuserdata(Lto, udatasz);
-	 memcpy(new_udata, lua_touserdata(Lfrom, -1), udatasz);
-	 if(lua_getmetatable(Lfrom, -1) == TRUE)
-	 {
-		#if (LUA_VERSION_NUM >= 503)
-		 lua_getfield(Lfrom, -1, "__name");
-		 luaL_newmetatable(Lto, lua_tostring(Lfrom, -1));
-		 lua_pop(Lfrom, 1);
-		 //iterate all metatable pairs (key-value)
-		 lua_pushnil(Lfrom);
-		 while(lua_next(Lfrom, -2) != FALSE)
-		 {	
-			//make sure key it's a string
-			if(lua_type(Lfrom, -2) == LUA_TSTRING)
-			{
-				lua_pushstring(Lto, lua_tostring(Lfrom, -2));
-				if(lua_iscfunction(Lfrom, -1))
-				{
-					lua_pushcfunction(Lto, lua_tocfunction(Lfrom, -1));
-				}
-				else switch(lua_type(Lfrom, -1))
-				{
-					case LUA_TNIL:
-						lua_pushnil(Lto);
-						break;
-					case LUA_TSTRING:
-						lua_pushstring(Lto, lua_tostring(Lfrom, -1));
-						break;
-					case LUA_TNUMBER:
-						copynumber(Lto, Lfrom, -1);
-						break;
-				}
-				lua_settable(Lto, -3);
-
-			}
-			 lua_pop(Lfrom, 1);
-		 }
-
-		#endif
-		lua_pop(Lfrom, 1);	 
-	 }
-	 break;
-		
         /* FALLTHROUGH */
-      default: /* value type not supported: table, function, userdata, etc. */
+      default: /* value type not supported: table, function, etc. */
         lua_pushnil( Lfrom );
         lua_pushfstring( Lfrom, "failed to copy upvalue of unsupported type "
                                 "'%s'", luaL_typename( Lfrom, -2 ));
