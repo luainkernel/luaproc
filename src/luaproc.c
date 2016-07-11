@@ -456,12 +456,12 @@ static int copyuserdata(lua_State *Lfrom, lua_State *Lto) {
 				  }
 				  break;
 			  }
-			  lua_settable(Lto, -3);
+			  lua_settable(Lto, 2);
 		  }
 		  lua_pop(Lfrom, 1); //pop value
 	  }
 	  lua_pop(Lfrom, 1); //pop metatable
-	  lua_pop(Lto, 1); //pop metatable
+	  lua_setmetatable(Lto, 1); //set table at 2 as a metatable of 1
   }
   return TRUE;
 }
