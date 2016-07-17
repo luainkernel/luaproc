@@ -5,6 +5,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -424,45 +425,72 @@ static int luaproc_buff_writer( lua_State *L, const void *buff, size_t size,
   return 0;
 }
 
-/* copies userdata between lua states, and attributes their respective metatable (if there's any) */
+
+
+static void _copyvalues(lua_State *Lfrom, lua_State *Lto, int type) {
+  const char* str;
+  size_t len;
+
+  switch(type) {
+  	  case LUA_TSTRING:
+		str = lua_tolstring(Lfrom, -1, &len);
+		lua_pushlstring(Lto, str, len);
+		break;
+  	  case LUA_TNUMBER:
+		copynumber(Lto, Lfrom, -1);
+		break;
+  	  case LUA_TFUNCTION:
+		if(lua_iscfunction(Lfrom, -1)) {
+			lua_pushcfunction(Lto, lua_tocfunction(Lfrom, -1));
+		}
+		break;
+  	  case LUA_TBOOLEAN:
+		lua_pushboolean(Lto, lua_toboolean(Lfrom, -1));
+		break;
+  	  case LUA_TTABLE:
+		lua_newtable(Lto);
+		lua_pushnil(Lfrom);
+			while(lua_next(Lfrom, 6) != 0) {
+				str = lua_tolstring(Lfrom, -2, &len);
+				lua_pushlstring(Lto, str, len);
+				_copyvalues(Lfrom, Lto, lua_type(Lfrom, -1));
+				lua_settable(Lto, 5);
+				lua_pop(Lfrom, 1); /* pop value and continue table iteration */
+			}
+		break;
+
+	}
+}
+
+/* copies userdata between lua states, and set their respective metatable (if there's any) */
 static int copyuserdata(lua_State *Lfrom, lua_State *Lto) {
   void* new_udata;
   size_t udatasz;
-  //copy userdata
+  size_t len;
+  const char* str;
+
   udatasz = lua_rawlen(Lfrom, -1);
   new_udata = lua_newuserdata(Lto, udatasz);
   memcpy(new_udata, lua_touserdata(Lfrom, -1), udatasz);
   if(lua_getmetatable(Lfrom, -1) == TRUE) {
 	  if(lua_getfield(Lfrom, -1, "__name") == LUA_TNIL)
-		  return luaL_error(Lfrom, "can't get __name at userdata's metatable");
+		  return luaL_error(Lfrom, "can't get __name from userdata's metatable");
 	  luaL_newmetatable(Lto, lua_tostring(Lfrom, -1));
 	  lua_pop(Lfrom, 1);
-	  //iterate all metatable pairs (key-value)
 	  lua_pushnil(Lfrom);
-	  while(lua_next(Lfrom, 2) != FALSE) {
-		  //make sure key it's a string
-		  if(lua_type(Lfrom, -2) == LUA_TSTRING) {
-			  lua_pushstring(Lto, lua_tostring(Lfrom, -2));
-			  switch(lua_type(Lfrom, -1)) {
-			  case LUA_TSTRING:
-				  lua_pushstring(Lto, lua_tostring(Lfrom, -1));
-				  break;
-			  case LUA_TNUMBER:
-				  copynumber(Lto, Lfrom, -1);
-				  break;
-			  case LUA_TFUNCTION:
-				  if(lua_iscfunction(Lfrom, -1)) {
-					  lua_pushcfunction(Lto, lua_tocfunction(Lfrom, -1));
-				  }
-				  break;
-			  }
-			  lua_settable(Lto, 2);
+	  while(lua_next(Lfrom, 4) != 0) {
+		  if(lua_type(Lfrom, -2) == LUA_TSTRING) { /* make sure key it's a string */
+			  str = lua_tolstring(Lfrom, -2, &len);
+			  lua_pushlstring(Lto, str, len);
+			  _copyvalues(Lfrom, Lto, lua_type(Lfrom, -1));
+			  lua_settable(Lto, 3);
 		  }
-		  lua_pop(Lfrom, 1); //pop value
+		  lua_pop(Lfrom, 1); /* pop value */
 	  }
-	  lua_pop(Lfrom, 1); //pop metatable
-	  lua_setmetatable(Lto, 1); //set table at 2 as a metatable of 1
+	  lua_pop(Lfrom, 1); /* pop metatable */
+	  lua_setmetatable(Lto, 2); /* set table at 3 as a metatable of 2 */
   }
+
   return TRUE;
 }
 /* copies upvalues between lua states' stacks */

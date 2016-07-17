@@ -1,12 +1,23 @@
-local luaproc = require("luaproc")
-local socket = require'socket'
-local z = 15
-function test()
-    x = 10
-    print(x)
-    print(z)
-    print("hi")
+--tcp server test
+socket = require("socket")
+luaproc = require("luaproc")
+local client = nil
+
+function callserver()
+        local data, err = client:receive()
+        client:send("hello world")
+        client:close()
 end
-local x = 30
-assert(luaproc.newproc(test, {}))
-print(x)
+
+
+local server = socket.tcp()
+assert(server:bind("*", 80))
+assert(server:listen(100))
+local ip, port = server:getsockname()
+print("ip - "..ip.." port - "..port)
+luaproc.setnumworkers(30)
+while 1 do
+client = server:accept() --waits for a connection
+luaproc.newproc(callserver)
+getmetatable(client).__gc = nil
+end
