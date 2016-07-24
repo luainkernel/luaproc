@@ -430,6 +430,7 @@ static int luaproc_buff_writer( lua_State *L, const void *buff, size_t size,
 static void _copyvalues(lua_State *Lfrom, lua_State *Lto, int type) {
   const char* str;
   size_t len;
+  int idx;
 
   switch(type) {
   	  case LUA_TSTRING:
@@ -449,9 +450,12 @@ static void _copyvalues(lua_State *Lfrom, lua_State *Lto, int type) {
 		break;
   	  case LUA_TTABLE:
 		lua_newtable(Lto);
+		idx = lua_gettop(Lfrom);
 		lua_pushnil(Lfrom);
-			while(lua_next(Lfrom, 6) != 0) {
+			while(lua_next(Lfrom, idx) != 0) {
 				str = lua_tolstring(Lfrom, -2, &len);
+				if(str == NULL)
+					break;
 				lua_pushlstring(Lto, str, len);
 				_copyvalues(Lfrom, Lto, lua_type(Lfrom, -1));
 				lua_settable(Lto, 5);
@@ -465,28 +469,38 @@ static void _copyvalues(lua_State *Lfrom, lua_State *Lto, int type) {
 /* copies userdata between lua states, and set their respective metatable (if there's any) */
 static int copyuserdata(lua_State *Lfrom, lua_State *Lto) {
   void* new_udata;
+  void* ptr_udata;
   size_t udatasz;
   size_t len;
   const char* str;
+  int idx;
 
   udatasz = lua_rawlen(Lfrom, -1);
   new_udata = lua_newuserdata(Lto, udatasz);
-  memcpy(new_udata, lua_touserdata(Lfrom, -1), udatasz);
+  ptr_udata = lua_touserdata(Lfrom, -1);
+  if(ptr_udata == NULL)
+	  return luaL_error(Lfrom, "Userdata it's not complete, see reference manual");
+  memcpy(new_udata, ptr_udata, udatasz);
   if(lua_getmetatable(Lfrom, -1) == TRUE) {
-	  if(lua_getfield(Lfrom, -1, "__name") == LUA_TNIL)
-		  return luaL_error(Lfrom, "can't get __name from userdata's metatable");
+	  idx = lua_gettop(Lfrom);
+	  if(lua_getfield(Lfrom, idx, "__name") == LUA_TNIL)
+		  return luaL_error(Lfrom, "Can't get __name from userdata's metatable");
 	  luaL_newmetatable(Lto, lua_tostring(Lfrom, -1));
 	  lua_pop(Lfrom, 1);
 	  lua_pushnil(Lfrom);
-	  while(lua_next(Lfrom, 4) != 0) {
+	  while(lua_next(Lfrom, idx) != 0) {
 		  if(lua_type(Lfrom, -2) == LUA_TSTRING) { /* make sure key it's a string */
 			  str = lua_tolstring(Lfrom, -2, &len);
+			  if(str == NULL)
+				  return luaL_error(Lfrom, "Error while trying to convert string");
 			  lua_pushlstring(Lto, str, len);
 			  _copyvalues(Lfrom, Lto, lua_type(Lfrom, -1));
 			  lua_settable(Lto, 3);
 		  }
 		  lua_pop(Lfrom, 1); /* pop value */
 	  }
+	  lua_pushnil(Lfrom);
+	  lua_setfield(Lfrom, idx, "__index"); /* disable userdata's metatable in Lfrom */
 	  lua_pop(Lfrom, 1); /* pop metatable */
 	  lua_setmetatable(Lto, 2); /* set table at 3 as a metatable of 2 */
   }
