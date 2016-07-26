@@ -16,5 +16,4 @@ luaproc.newproc(function ()
         client:send("hello world")
         client:close()
     end)
-getmetatable(client).__gc = nil
 end
