@@ -3,7 +3,7 @@
 ** See Copyright Notice in luaproc.h
 */
 
-#include <pthread.h>
+#include <string.h>
 #include <stdlib.h>
 #include <lua.h>
 #include <lauxlib.h>
@@ -424,6 +424,88 @@ static int luaproc_buff_writer( lua_State *L, const void *buff, size_t size,
   return 0;
 }
 
+
+
+static void _copyvalues(lua_State *Lfrom, lua_State *Lto, int type) {
+  const char* str;
+  size_t len;
+  int idx;
+
+  switch(type) {
+  	  case LUA_TSTRING:
+		str = lua_tolstring(Lfrom, -1, &len);
+		lua_pushlstring(Lto, str, len);
+		break;
+  	  case LUA_TNUMBER:
+		copynumber(Lto, Lfrom, -1);
+		break;
+  	  case LUA_TFUNCTION:
+		if(lua_iscfunction(Lfrom, -1)) {
+			lua_pushcfunction(Lto, lua_tocfunction(Lfrom, -1));
+		}
+		break;
+  	  case LUA_TBOOLEAN:
+		lua_pushboolean(Lto, lua_toboolean(Lfrom, -1));
+		break;
+  	  case LUA_TTABLE:
+		lua_newtable(Lto);
+		idx = lua_gettop(Lfrom);
+		lua_pushnil(Lfrom);
+			while(lua_next(Lfrom, idx) != 0) {
+				str = lua_tolstring(Lfrom, -2, &len);
+				if(str == NULL)
+					break;
+				lua_pushlstring(Lto, str, len);
+				_copyvalues(Lfrom, Lto, lua_type(Lfrom, -1));
+				lua_settable(Lto, 5);
+				lua_pop(Lfrom, 1); /* pop value and continue table iteration */
+			}
+		break;
+
+	}
+}
+
+/* copies userdata between lua states, and set their respective metatable (if there's any) */
+static int copyuserdata(lua_State *Lfrom, lua_State *Lto) {
+  void* new_udata;
+  void* ptr_udata;
+  size_t udatasz;
+  size_t len;
+  const char* str;
+  int idx;
+
+  udatasz = lua_rawlen(Lfrom, -1);
+  new_udata = lua_newuserdata(Lto, udatasz);
+  ptr_udata = lua_touserdata(Lfrom, -1);
+  if(ptr_udata == NULL)
+	  return luaL_error(Lfrom, "Userdata it's not complete, see reference manual");
+  memcpy(new_udata, ptr_udata, udatasz);
+  if(lua_getmetatable(Lfrom, -1) == TRUE) {
+	  idx = lua_gettop(Lfrom);
+	  if(lua_getfield(Lfrom, idx, "__name") == LUA_TNIL)
+		  return luaL_error(Lfrom, "Can't get __name from userdata's metatable");
+	  luaL_newmetatable(Lto, lua_tostring(Lfrom, -1));
+	  lua_pop(Lfrom, 1);
+	  lua_pushnil(Lfrom);
+	  while(lua_next(Lfrom, idx) != 0) {
+		  if(lua_type(Lfrom, -2) == LUA_TSTRING) { /* make sure key it's a string */
+			  str = lua_tolstring(Lfrom, -2, &len);
+			  if(str == NULL)
+				  return luaL_error(Lfrom, "Error while trying to convert string");
+			  lua_pushlstring(Lto, str, len);
+			  _copyvalues(Lfrom, Lto, lua_type(Lfrom, -1));
+			  lua_settable(Lto, 3);
+		  }
+		  lua_pop(Lfrom, 1); /* pop value */
+	  }
+	  lua_pushnil(Lfrom);
+	  lua_setfield(Lfrom, idx, "__index"); /* disable userdata's metatable in Lfrom */
+	  lua_pop(Lfrom, 1); /* pop metatable */
+	  lua_setmetatable(Lto, 2); /* set table at 3 as a metatable of 2 */
+  }
+
+  return TRUE;
+}
 /* copies upvalues between lua states' stacks */
 static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto, 
                                  int funcindex ) {
@@ -449,6 +531,12 @@ static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto,
       case LUA_TNIL:
         lua_pushnil( Lto );
         break;
+
+#if (LUA_VERSION_NUM >= 503)
+      case LUA_TUSERDATA:
+    	 copyuserdata(Lfrom, Lto);
+    	  break;
+#endif
       /* if upvalue is a table, check whether it is the global environment
          (_ENV) from the source state Lfrom. in case so, push in the stack of
          the destination state Lto its own global environment to be set as the
@@ -463,7 +551,7 @@ static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto,
         }
         lua_pop( Lfrom, 1 );
         /* FALLTHROUGH */
-      default: /* value type not supported: table, function, userdata, etc. */
+      default: /* value type not supported: table, function, etc. */
         lua_pushnil( Lfrom );
         lua_pushfstring( Lfrom, "failed to copy upvalue of unsupported type "
                                 "'%s'", luaL_typename( Lfrom, -2 ));
