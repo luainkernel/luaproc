@@ -142,7 +142,7 @@ void *workermain( void *args ) {
       fprintf( stderr, "close lua_State (error: %s)\n",
                luaL_checkstring( luaproc_get_state( lp ), -1 ));
       lua_close( luaproc_get_state( lp ));  /* close lua state */
-      sched_dec_lpcount();/* decrease active lua process count */
+      sched_dec_lpcount();  /* decrease active lua process count */
     }
   }    
 }
