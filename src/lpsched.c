@@ -62,19 +62,19 @@ static void sched_dec_lpcount( void );
 /* worker thread main function */
 void *workermain( void *args ) {
 
-luaproc *lp;
-int procstat;
+  luaproc *lp;
+  int procstat;
 
 /* main worker loop */
-while ( TRUE ) {
-	/*
-	  wait until instructed to wake up (because there's work to do
-	  or because workers must be destroyed)
-	 */
-	lpthread_mutex_lock( &mutex_sched );
-	while (( list_count( &ready_lp_list ) == 0 ) && ( destroyworkers <= 0 )) {
+  while ( TRUE ) {
+    /*
+    wait until instructed to wake up (because there's work to do
+    or because workers must be destroyed)
+    */
+	  lpthread_mutex_lock( &mutex_sched );
+	  while (( list_count( &ready_lp_list ) == 0 ) && ( destroyworkers <= 0 )) {
 		lpthread_cond_wait( &cond_wakeup_worker, &mutex_sched );
-	}
+	 }
 
 	if ( destroyworkers > 0 ) {  /* check whether workers should be destroyed */
 
