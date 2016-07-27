@@ -11,10 +11,6 @@
 #define lpthread_mutex_t    pthread_mutex_t
 #define lpthread_t pthread_t
 
-#define pthread_cond_init(cond)  cond = PTHREAD_COND_INITIALIZER
-#define pthread_mutex_init(mut)  mut = PTHREAD_MUTEX_INITIALIZER
-
-
 #define lpthread_create pthread_create
 #define lpthread_exit(retval) pthread_exit(retval)
 #define lpthread_cond_init(mutex, attr) pthread_cond_init(mutex,attr)

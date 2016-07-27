@@ -78,10 +78,10 @@
  *******************/
 
 /* channel list mutex */
-static lpthread_mutex_t pthread_mutex_init(mutex_channel_list);
+static lpthread_mutex_t mutex_channel_list;
 
 /* recycle list mutex */
-static lpthread_mutex_t pthread_mutex_init(mutex_recycle_list);
+static lpthread_mutex_t mutex_recycle_list;
 
 /* recycled lua process list */
 static list recycle_list;
@@ -97,10 +97,10 @@ static lua_State *chanls = NULL;
 static luaproc mainlp;
 
 /* main state matched a send/recv operation conditional variable */
-lpthread_cond_t pthread_cond_init(cond_mainls_sendrecv);
+lpthread_cond_t cond_mainls_sendrecv;
 
 /* main state communication mutex */
-static lpthread_mutex_t pthread_mutex_init(mutex_mainls);
+static lpthread_mutex_t mutex_mainls;
 
 /***********************
  * register prototypes *
@@ -951,6 +951,11 @@ LUALIB_API int luaopen_luaproc( lua_State *L ) {
   lua_getfield( L, LUA_REGISTRYINDEX, "LUAPROC_FINALIZER_MT" );
   lua_setmetatable( L, -2 );
   lua_pop( L, 1 );
+  /* globals initialization */
+  lpthread_mutex_init(&mutex_channel_list, NULL);
+  lpthread_mutex_init(&mutex_recycle_list, NULL);
+  lpthread_mutex_init(&mutex_mainls, NULL);
+  lpthread_cond_init(&cond_mainls_sendrecv, NULL);
   /* initialize scheduler */
   if ( sched_init() == LUAPROC_SCHED_PTHREAD_ERROR ) {
     luaL_error( L, "failed to create worker" );

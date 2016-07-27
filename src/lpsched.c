@@ -31,16 +31,16 @@
 list ready_lp_list;
 
 /* ready process queue access mutex */
-lpthread_mutex_t pthread_mutex_init(mutex_sched);
+lpthread_mutex_t mutex_sched;
 
 /* active luaproc count access mutex */
-lpthread_mutex_t pthread_mutex_init(mutex_lp_count);
+lpthread_mutex_t mutex_lp_count;
 
 /* wake worker up conditional variable */
-lpthread_cond_t pthread_cond_init(cond_wakeup_worker);
+lpthread_cond_t cond_wakeup_worker;
 
 /* no active luaproc conditional variable */
-lpthread_cond_t pthread_cond_init(cond_no_active_lp);
+lpthread_cond_t cond_no_active_lp;
 
 /* lua_State used to store workers hash table */
 static lua_State *workerls = NULL;
@@ -178,7 +178,13 @@ int sched_init( void ) {
 
   int i;
   lpthread_t worker;
-
+  
+  /*globals initialization*/
+  lpthread_mutex_init(&mutex_sched, NULL);
+  lpthread_mutex_init(&mutex_lp_count, NULL);
+  lpthread_cond_init(&cond_wakeup_worker, NULL);
+  lpthread_cond_init(&cond_no_active_lp, NULL);
+  
   /* initialize ready process list */
   list_init( &ready_lp_list );
 
