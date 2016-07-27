@@ -78,10 +78,10 @@
  *******************/
 
 /* channel list mutex */
-static lpthread_mutex_t INIT_MUTEX(mutex_channel_list);
+static lpthread_mutex_t pthread_mutex_init(mutex_channel_list);
 
 /* recycle list mutex */
-static lpthread_mutex_t INIT_MUTEX(mutex_recycle_list);
+static lpthread_mutex_t pthread_mutex_init(mutex_recycle_list);
 
 /* recycled lua process list */
 static list recycle_list;
@@ -97,10 +97,10 @@ static lua_State *chanls = NULL;
 static luaproc mainlp;
 
 /* main state matched a send/recv operation conditional variable */
-lpthread_cond_t INIT_COND(cond_mainls_sendrecv);
+lpthread_cond_t pthread_cond_init(cond_mainls_sendrecv);
 
 /* main state communication mutex */
-static lpthread_mutex_t INIT_MUTEX(mutex_mainls);
+static lpthread_mutex_t pthread_mutex_init(mutex_mainls);
 
 /***********************
  * register prototypes *
