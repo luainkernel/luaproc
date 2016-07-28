@@ -414,6 +414,10 @@ static luaproc *luaproc_new( lua_State *L ) {
 static int luaproc_join_workers( lua_State *L ) {
   sched_join_workers();
   lua_close( chanls );
+  lpthread_cond_destroy( &cond_mainls_sendrecv );
+  lpthread_mutex_destroy( &mutex_recycle_list );
+  lpthread_mutex_destroy( &mutex_channel_list );
+  lpthread_mutex_destroy( &mutex_mainls );
   return 0;
 }
 
