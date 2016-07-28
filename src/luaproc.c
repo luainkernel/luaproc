@@ -117,6 +117,7 @@ static int luaproc_get_numworkers( lua_State *L );
 static int luaproc_recycle_set( lua_State *L );
 LUALIB_API int luaopen_luaproc( lua_State *L );
 static int luaproc_loadlib( lua_State *L ); 
+static int luaproc_copyvalue( lua_State* LFrom, lua_State* Lto, int type );
 
 /***********
  * structs *
@@ -424,21 +425,26 @@ static int luaproc_buff_writer( lua_State *L, const void *buff, size_t size,
   return 0;
 }
 
-static void luaproc_copytable(lua_State *Lfrom, lua_State *Lto) {
+static int luaproc_copytable(lua_State *Lfrom, lua_State *Lto) {
+  const char* str;
+  size_t len;
   int idx = lua_gettop(Lfrom);
   lua_newtable(Lto);
   lua_pushnil(Lfrom);
   
   while(lua_next(Lfrom, idx) != 0) {
     str = lua_tolstring(Lfrom, -2, &len);
+    if(str == NULL)
+	   return FALSE;
     lua_pushlstring(Lto, str, len);
-    _copyvalues(Lfrom, Lto, lua_type(Lfrom, -1));
+    luaproc_copyvalue(Lfrom, Lto, lua_type(Lfrom, -1));
     lua_settable(Lto, 5);
     lua_pop(Lfrom, 1); /* pop value and continue table iteration */
   }
+  return TRUE;
 }
 
-static void _copyvalues(lua_State *Lfrom, lua_State *Lto, int type) {
+static int luaproc_copyvalue(lua_State *Lfrom, lua_State *Lto, int type) {
   const char* str;
   size_t len;
 
@@ -459,9 +465,14 @@ static void _copyvalues(lua_State *Lfrom, lua_State *Lto, int type) {
       lua_pushboolean(Lto, lua_toboolean(Lfrom, -1));
       break;
     case LUA_TTABLE:
-      luaproc_copytable(Lfrom, Lto);
+      if(!luaproc_copytable(Lfrom, Lto)) {
+	lua_pushnil(Lfrom);
+	lua_pushstring(Lfrom, "Cannot obtain key as a string");
+	return FALSE;
+      }
       break;
   }
+  return TRUE;
 }
 
 /* copies userdata between lua states, and set their respective metatable (if there's any) */
@@ -501,7 +512,8 @@ static int luaproc_copyuserdata(lua_State *Lfrom, lua_State *Lto) {
           return FALSE;
         }
         lua_pushlstring(Lto, str, len);
-        _copyvalues(Lfrom, Lto, lua_type(Lfrom, -1));
+        if(!luaproc_copyvalue(Lfrom, Lto, lua_type(Lfrom, -1)))
+		return FALSE;
         lua_settable(Lto, 3);
       }
       lua_pop(Lfrom, 1); /* pop value */
