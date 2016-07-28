@@ -180,10 +180,10 @@ int sched_init( void ) {
   lpthread_t worker;
   
   /*globals initialization*/
-  lpthread_mutex_init(&mutex_sched, NULL);
-  lpthread_mutex_init(&mutex_lp_count, NULL);
-  lpthread_cond_init(&cond_wakeup_worker, NULL);
-  lpthread_cond_init(&cond_no_active_lp, NULL);
+  lpthread_mutex_init( &mutex_sched, NULL );
+  lpthread_mutex_init( &mutex_lp_count, NULL );
+  lpthread_cond_init( &cond_wakeup_worker, NULL );
+  lpthread_cond_init( &cond_no_active_lp, NULL );
   
   /* initialize ready process list */
   list_init( &ready_lp_list );
@@ -329,7 +329,7 @@ void sched_join_workers( void ) {
   lua_getglobal( L, wtb );
   lua_pushnil( L );
   while ( lua_next( L, -2 ) != 0 ) {
-    pthread_join(( pthread_t )lua_touserdata( L, -2 ), NULL );
+    lpthread_join(( lpthread_t )lua_touserdata( L, -2 ), NULL );
     /* pop value, leave key for next iteration */
     lua_pop( L, 1 );
   }
@@ -345,7 +345,7 @@ void sched_wait( void ) {
   /* wait until there are not more active lua processes */
   lpthread_mutex_lock( &mutex_lp_count );
   if( lpcount != 0 ) {
-    pthread_cond_wait( &cond_no_active_lp, &mutex_lp_count );
+    lpthread_cond_wait( &cond_no_active_lp, &mutex_lp_count );
   }
   lpthread_mutex_unlock( &mutex_lp_count );
 

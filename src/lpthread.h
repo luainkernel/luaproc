@@ -23,6 +23,7 @@
 #define lpthread_mutex_trylock(mutex) pthread_mutex_trylock(mutex)
 #define lpthread_mutex_unlock(mutex) pthread_mutex_unlock(mutex)
 #define lpthread_mutex_destroy(mutex) pthread_mutex_destroy(mutex)
+#define lpthread_join(thread, ptr) pthread_join(thread, ptr)
 
 #else
 #error Not Supported

@@ -952,10 +952,10 @@ LUALIB_API int luaopen_luaproc( lua_State *L ) {
   lua_setmetatable( L, -2 );
   lua_pop( L, 1 );
   /* globals initialization */
-  lpthread_mutex_init(&mutex_channel_list, NULL);
-  lpthread_mutex_init(&mutex_recycle_list, NULL);
-  lpthread_mutex_init(&mutex_mainls, NULL);
-  lpthread_cond_init(&cond_mainls_sendrecv, NULL);
+  lpthread_mutex_init( &mutex_channel_list, NULL );
+  lpthread_mutex_init( &mutex_recycle_list, NULL );
+  lpthread_mutex_init( &mutex_mainls, NULL );
+  lpthread_cond_init( &cond_mainls_sendrecv, NULL );
   /* initialize scheduler */
   if ( sched_init() == LUAPROC_SCHED_PTHREAD_ERROR ) {
     luaL_error( L, "failed to create worker" );
