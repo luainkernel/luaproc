@@ -337,7 +337,7 @@ void sched_join_workers( void ) {
 
   lua_close( workerls );
   lua_close( L );
-  lpthread_cond_destroy( &cond_no_active_lp ;
+  lpthread_cond_destroy( &cond_no_active_lp );
   lpthread_cond_destroy( &cond_wakeup_worker );
   lpthread_mutex_destroy( &mutex_lp_count );
   lpthread_mutex_destroy( &mutex_sched );  
