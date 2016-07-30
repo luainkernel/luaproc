@@ -12,18 +12,18 @@
 #define lpthread_t pthread_t
 
 #define lpthread_create pthread_create
-#define lpthread_exit(retval) pthread_exit(retval)
-#define lpthread_cond_init(mutex, attr) pthread_cond_init(mutex,attr)
-#define lpthread_cond_wait(cond, mutex) pthread_cond_wait(cond, mutex)
-#define lpthread_cond_signal(cond) pthread_cond_signal(cond)
-#define lpthread_cond_broadcast(cond) pthread_cond_broadcast(cond)
-#define lpthread_cond_destroy(cond) pthread_cond_destroy(cond)
-#define lpthread_mutex_init(mutex, attr) pthread_mutex_init(mutex, attr)   
-#define lpthread_mutex_lock(mutex) pthread_mutex_lock(mutex)
-#define lpthread_mutex_trylock(mutex) pthread_mutex_trylock(mutex)
-#define lpthread_mutex_unlock(mutex) pthread_mutex_unlock(mutex)
-#define lpthread_mutex_destroy(mutex) pthread_mutex_destroy(mutex)
-#define lpthread_join(thread, ptr) pthread_join(thread, ptr)
+#define lpthread_exit pthread_exit
+#define lpthread_cond_init pthread_cond_init
+#define lpthread_cond_wait pthread_cond_wait
+#define lpthread_cond_signal pthread_cond_signal
+#define lpthread_cond_broadcast pthread_cond_broadcast
+#define lpthread_cond_destroy pthread_cond_destroy
+#define lpthread_mutex_init pthread_mutex_init   
+#define lpthread_mutex_lock pthread_mutex_lock
+#define lpthread_mutex_trylock pthread_mutex_trylock
+#define lpthread_mutex_unlock pthread_mutex_unlock
+#define lpthread_mutex_destroy pthread_mutex_destroy
+#define lpthread_join pthread_join
 
 #else
 #error Not Supported

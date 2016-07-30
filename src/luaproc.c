@@ -204,7 +204,7 @@ static channel *channel_create( const char *cname ) {
   channel *chan;
 
   /* get exclusive access to channels list */
-  lpthread_mutex_lock(&mutex_channel_list);
+  lpthread_mutex_lock( &mutex_channel_list );
 
   /* create new channel and register its name */
   lua_getglobal( chanls, LUAPROC_CHANNELS_TABLE );
