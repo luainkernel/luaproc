@@ -545,7 +545,7 @@ static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto,
 
   #if (LUA_VERSION_NUM >= 503)
       case LUA_TUSERDATA:
-    	 if(!luaproc_copyuserdata( Lfrom, Lto ))
+    	 if( !luaproc_copyuserdata( Lfrom, Lto ) )
            return FALSE;
     	  break;
   #endif
