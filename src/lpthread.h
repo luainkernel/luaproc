@@ -1,7 +1,6 @@
 #ifndef _LUA_LUAPROC_CONF_H_
 #define _LUA_LUAPROC_CONF_H_
 
-
 #ifdef LUAPROC_USE_PTHREADS
 #ifdef __unix__
 #include <unistd.h>
@@ -34,5 +33,4 @@
 #ifdef LUAPROC_USE_KTHREADS
 
 #endif
-
 #endif

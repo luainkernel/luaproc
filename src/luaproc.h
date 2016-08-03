@@ -6,7 +6,6 @@
 #ifndef _LUA_LUAPROC_H_
 #define _LUA_LUAPROC_H_
 
-
 /*************************************
  * execution status of lua processes *
  ************************************/

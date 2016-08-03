@@ -955,7 +955,7 @@ LUALIB_API int luaopen_luaproc( lua_State *L ) {
   lua_getfield( L, LUA_REGISTRYINDEX, "LUAPROC_FINALIZER_MT" );
   lua_setmetatable( L, -2 );
   lua_pop( L, 1 );
-  /* globals initialization */
+  /* initialize global mutexes and condvars */
   lpthread_mutex_init( &mutex_channel_list, NULL );
   lpthread_mutex_init( &mutex_recycle_list, NULL );
   lpthread_mutex_init( &mutex_mainls, NULL );

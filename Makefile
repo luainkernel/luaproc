@@ -13,8 +13,8 @@ LUA_CPATH=/usr/lib/lua/${LUA_VERSION}
 CC=gcc
 SRCDIR=src
 BINDIR=bin
-CFLAGS=-c -O2 -Wall -fPIC -I${LUA_INCDIR} ${THREADS}
 THREADS=-DLUAPROC_USE_PTHREADS
+CFLAGS=-c -O2 -Wall -fPIC -I${LUA_INCDIR} ${THREADS}
 # MacOS X users should replace LIBFLAG with the following definition
 # LIBFLAG=-bundle -undefined dynamic_lookup
 LIBFLAG=-shared
@@ -28,13 +28,10 @@ LIBNAME=luaproc
 LIB=${LIBNAME}.so
 
 # build targets
-
 all: ${BINDIR}/${LIB}
 
 ${BINDIR}/${LIB}: ${OBJECTS}
 	${CC} $^ -o $@ ${LDFLAGS} 
-
-kernel: ${BINDIR}/${LIB}
 
 lpsched.o: lpsched.c lpsched.h luaproc.h lpthread.h
 	${CC} ${CFLAGS} $^
