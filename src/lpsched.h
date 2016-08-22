@@ -27,8 +27,14 @@
  * function prototypes *
  **********************/
 
+#ifndef LUAPROC_USE_KTHREADS
+void*
+#else
+void
+#endif
+workermain( void* args );
 /* initialize scheduler */
-int sched_init( void );
+int luaproc_sched_init( void );
 /* join workers */
 void sched_join_workers( void );
 /* wait until there are no more active lua processes */
