@@ -3,8 +3,9 @@
 ** See Copyright Notice in luaproc.h
 */
 
-#include <string.h>
+#ifdef LUAPROC_USE_PTHREADS
 #include <stdlib.h>
+#endif
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -12,9 +13,10 @@
 #include "luaproc.h"
 #include "lpsched.h"
 #include "lpthread.h"
-
+#ifndef _KERNEL
 #define FALSE 0
 #define TRUE  !FALSE
+#endif
 #define LUAPROC_CHANNELS_TABLE "channeltb"
 #define LUAPROC_RECYCLE_MAX 0
 
@@ -72,7 +74,11 @@
 #define copynumber( Lto, Lfrom, i ) \
   lua_pushnumber( Lto, lua_tonumber( Lfrom, i ))
 #endif
-
+#ifdef LUAPROC_USE_KTHREADS
+#ifdef _MODULE
+MODULE(MODULE_CLASS_MISC, luaproc, "lua");
+#endif
+#endif
 /********************
  * global variables *
  *******************/
@@ -106,7 +112,7 @@ static lpthread_mutex_t mutex_mainls;
  * register prototypes *
  ***********************/
 
-static void luaproc_openlualibs( lua_State *L );
+/*static*/ void luaproc_openlualibs( lua_State *L );
 static int luaproc_create_newproc( lua_State *L );
 static int luaproc_wait( lua_State *L );
 static int luaproc_send( lua_State *L );
@@ -117,7 +123,7 @@ static int luaproc_set_numworkers( lua_State *L );
 static int luaproc_get_numworkers( lua_State *L );
 static int luaproc_recycle_set( lua_State *L );
 LUALIB_API int luaopen_luaproc( lua_State *L );
-static int luaproc_loadlib( lua_State *L ); 
+static int luaproc_loadlib( lua_State *L );
 
 /***********
  * structs *
@@ -397,12 +403,16 @@ static luaproc *luaproc_getself( lua_State *L ) {
 static luaproc *luaproc_new( lua_State *L ) {
 
   luaproc *lp;
+  #ifndef _KERNEL
   lua_State *lpst = luaL_newstate();  /* create new lua state */
+  #else
+  lua_State *lpst = luaK_newstate();
+  #endif
 
   /* store the lua process in its own lua state */
   lp = (luaproc *)lua_newuserdata( lpst, sizeof( struct stluaproc ));
   lua_setfield( lpst, LUA_REGISTRYINDEX, "LUAPROC_LP_UDATA" );
-  luaproc_openlualibs( lpst );  /* load standard libraries and luaproc */
+  luaproc_openlualibs( lpst ); /* load standard libraries and luaproc */
   /* register luaproc's own functions */
   requiref( lpst, "luaproc", luaproc_loadlib, TRUE );
   lp->lstate = lpst;  /* insert created lua state into lua process struct */
@@ -905,15 +915,16 @@ static void luaproc_reglualib( lua_State *L, const char *name,
   lua_pop( L, 2 );
 }
 
-static void luaproc_openlualibs( lua_State *L ) {
+/*static*/ void luaproc_openlualibs( lua_State *L ) {
   requiref( L, "_G", luaopen_base, FALSE );
-  requiref( L, "package", luaopen_package, TRUE );
-  luaproc_reglualib( L, "io", luaopen_io );
-  luaproc_reglualib( L, "os", luaopen_os );
-  luaproc_reglualib( L, "table", luaopen_table );
-  luaproc_reglualib( L, "string", luaopen_string );
-  luaproc_reglualib( L, "math", luaopen_math );
-  luaproc_reglualib( L, "debug", luaopen_debug );
+  luaL_openlibs( L );
+  /*requiref( L, "package", luaopen_package, TRUE );*/
+  /*requiref( L, "os", luaopen_os, FALSE );
+  requiref( L, "io", luaopen_io, FALSE );*/
+  /*luaproc_reglualib( L, "math", luaopen_math );*/
+ /* luaproc_reglualib( L, "table", luaopen_table );*/
+ /* luaproc_reglualib( L, "string", luaopen_string );*/
+/*  luaproc_reglualib( L, "debug", luaopen_debug );
 #if (LUA_VERSION_NUM == 502)
   luaproc_reglualib( L, "bit32", luaopen_bit32 );
 #endif
@@ -922,7 +933,7 @@ static void luaproc_openlualibs( lua_State *L ) {
 #endif
 #if (LUA_VERSION_NUM >= 503)
   luaproc_reglualib( L, "utf8", luaopen_utf8 );
-#endif
+#endif*/
 
 }
 
@@ -930,7 +941,9 @@ LUALIB_API int luaopen_luaproc( lua_State *L ) {
 
   /* register luaproc functions */
   luaL_newlib( L, luaproc_funcs );
-
+  #ifndef LUAPROC_USE_KTHREADS
+  luaproc_openlualibs( L );
+  #endif
   /* wrap main state inside a lua process */
   mainlp.lstate = L;
   mainlp.status = LUAPROC_STATUS_IDLE;
@@ -940,7 +953,11 @@ LUALIB_API int luaopen_luaproc( lua_State *L ) {
   /* initialize recycle list */
   list_init( &recycle_list );
   /* initialize channels table and lua_State used to store it */
+  #ifndef _KERNEL
   chanls = luaL_newstate();
+  #else
+  chanls = luaK_newstate();
+  #endif
   lua_newtable( chanls );
   lua_setglobal( chanls, LUAPROC_CHANNELS_TABLE );
   /* create finalizer to join workers when Lua exits */
@@ -961,7 +978,7 @@ LUALIB_API int luaopen_luaproc( lua_State *L ) {
   lpthread_mutex_init( &mutex_mainls, NULL );
   lpthread_cond_init( &cond_mainls_sendrecv, NULL );
   /* initialize scheduler */
-  if ( sched_init() == LUAPROC_SCHED_PTHREAD_ERROR ) {
+  if ( luaproc_sched_init() == LUAPROC_SCHED_PTHREAD_ERROR ) {
     luaL_error( L, "failed to create worker" );
   }
 
@@ -975,3 +992,23 @@ static int luaproc_loadlib( lua_State *L ) {
 
   return 1;
 }
+
+#ifdef LUAPROC_USE_KTHREADS
+#ifdef _MODULE
+static int luaproc_modcmd( modcmd_t cmd, void* ptr ) {
+  int error;
+
+  switch(cmd) {
+    case MODULE_CMD_INIT:
+        error = klua_mod_register( "proc", luaopen_luaproc );
+	break;
+    case MODULE_CMD_FINI:
+	error = klua_mod_unregister( "proc" );
+	break;
+    default:
+	error = ENOTTY;
+    }
+return error;
+}
+#endif
+#endif
