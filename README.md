@@ -56,6 +56,7 @@ and metatable, if there's any, inside the worker process.
 ## Compatibility
 
 *luaproc* is compatible with Lua 5.1, 5.2 and 5.3.
+
 *luaproc in kernel* is compatible with Lua 5.3.
 
 ## API
@@ -147,7 +148,9 @@ GitHub source repository:
 ## License
 
 Copyright © 2008-2016 Alexandre Skyrme, Noemi Rodriguez, Roberto Ierusalimschy.
+
 Copyright © 2016-2016 Lourival Vieira Neto, Pedro Tammela.
+
 All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
