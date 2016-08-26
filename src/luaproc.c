@@ -419,8 +419,10 @@ static int luaproc_copytable( lua_State *Lfrom, lua_State *Lto ) {
   
   while( lua_next( Lfrom, idx ) != 0 ) {
     if( luaproc_copyvalue( Lfrom, Lto, -2, lua_type( Lfrom, -2 ) ) ) { /* copy key to Lto */
-      luaproc_copyvalue( Lfrom, Lto, -1, lua_type( Lfrom, -1 ) );
-      lua_settable( Lto, idxLto );
+      if( !lua_rawequal( Lfrom, idx, -1 ) ) { /* check for recursive __index */
+        luaproc_copyvalue( Lfrom, Lto, -1, lua_type( Lfrom, -1 ) );
+        lua_settable( Lto, idxLto );
+      }
       lua_pop( Lfrom, 1 ); /* pop value and continue table iteration */
     }
     else return FALSE;
