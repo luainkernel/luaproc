@@ -118,6 +118,8 @@ static int luaproc_get_numworkers( lua_State *L );
 static int luaproc_recycle_set( lua_State *L );
 LUALIB_API int luaopen_luaproc( lua_State *L );
 static int luaproc_loadlib( lua_State *L ); 
+static int luaproc_copyvalue( lua_State *Lfrom, lua_State *Lto, int idxLfrom, int type );
+static int luaproc_copyuserdata( lua_State *Lfrom, lua_State *Lto );
 
 /***********
  * structs *
@@ -338,8 +340,7 @@ static int luaproc_copyvalues( lua_State *Lfrom, lua_State *Lto ) {
 
   int i;
   int n = lua_gettop( Lfrom );
-  const char *str;
-  size_t len;
+  int type;
 
   /* ensure there is space in the receiver's stack */
   if ( lua_checkstack( Lto, n ) == 0 ) {
@@ -352,22 +353,9 @@ static int luaproc_copyvalues( lua_State *Lfrom, lua_State *Lto ) {
 
   /* test each value's type and, if it's supported, copy value */
   for ( i = 2; i <= n; i++ ) {
-    switch ( lua_type( Lfrom, i )) {
-      case LUA_TBOOLEAN:
-        lua_pushboolean( Lto, lua_toboolean( Lfrom, i ));
-        break;
-      case LUA_TNUMBER:
-        copynumber( Lto, Lfrom, i );
-        break;
-      case LUA_TSTRING: {
-        str = lua_tolstring( Lfrom, i, &len );
-        lua_pushlstring( Lto, str, len );
-        break;
-      }
-      case LUA_TNIL:
-        lua_pushnil( Lto );
-        break;
-      default: /* value type not supported: table, function, userdata, etc. */
+      type = lua_type( Lfrom, i );
+      if( type == LUA_TTABLE || !luaproc_copyvalue( Lfrom, Lto, i, type ) ) {
+        /* value type not supported: table, function, userdata, etc. */
         lua_settop( Lto, 1 );
         lua_pushnil( Lto );
         lua_pushfstring( Lto, "failed to receive value of unsupported type "
@@ -429,46 +417,125 @@ static int luaproc_buff_writer( lua_State *L, const void *buff, size_t size,
   return 0;
 }
 
+static int luaproc_copytable( lua_State *Lfrom, lua_State *Lto ) {
+  int idx = lua_gettop( Lfrom );
+  int idxLto = lua_gettop( Lto );
+  lua_pushnil( Lfrom );
+  
+  while( lua_next( Lfrom, idx ) != 0 ) {
+    if( luaproc_copyvalue( Lfrom, Lto, -2, lua_type( Lfrom, -2 ) ) ) { /* copy key to Lto */
+      if( !lua_rawequal( Lfrom, idx, -1 ) ) { /* check for recursive __index */
+        luaproc_copyvalue( Lfrom, Lto, -1, lua_type( Lfrom, -1 ) );
+        lua_settable( Lto, idxLto );
+      }
+      lua_pop( Lfrom, 1 ); /* pop value and continue table iteration */
+    }
+    else return FALSE;
+  }
+  return TRUE;
+}
+
+static int luaproc_copyvalue( lua_State *Lfrom, lua_State *Lto, int idxLfrom, int type ) {
+  const char* str;
+  size_t len;
+
+  switch( type ) {
+    case LUA_TSTRING:
+      str = lua_tolstring( Lfrom, idxLfrom, &len );
+      lua_pushlstring( Lto, str, len );
+      break;
+    case LUA_TNUMBER:
+      copynumber( Lto, Lfrom, idxLfrom );
+      break;
+    case LUA_TFUNCTION:
+      if( lua_iscfunction( Lfrom, idxLfrom ) ) {
+        lua_pushcfunction( Lto, lua_tocfunction( Lfrom, idxLfrom ) );
+      }
+      else return FALSE;
+      break;
+    case LUA_TBOOLEAN:
+      lua_pushboolean( Lto, lua_toboolean( Lfrom, idxLfrom ) );
+      break;
+    case LUA_TTABLE:
+        lua_newtable( Lto );
+        if( !luaproc_copytable( Lfrom, Lto ) ) {
+	  return FALSE;
+      }
+      break;
+    case LUA_TNIL:
+        lua_pushnil( Lto );
+        break;
+  #if (LUA_VERSION_NUM >= 503)
+    case LUA_TUSERDATA:
+        if( !luaproc_copyuserdata( Lfrom, Lto ) )
+          return FALSE;
+        break;
+  #endif
+
+  }
+  return TRUE;
+}
+
+/* copies userdata between lua states, and set their respective metatable (if there's any) */
+static int luaproc_copyuserdata( lua_State *Lfrom, lua_State *Lto ) {
+  void* new_udata;
+  void* ptr_udata;
+  size_t udatasz;
+  int idx;
+
+  udatasz = lua_rawlen( Lfrom, -1 );
+  new_udata = lua_newuserdata( Lto, udatasz );
+  ptr_udata = lua_touserdata( Lfrom, -1 );
+  if( ptr_udata == NULL ) {
+    return FALSE;
+  }
+  memcpy( new_udata, ptr_udata, udatasz );
+  if( lua_getmetatable( Lfrom, -1 ) == TRUE ) {
+    idx = lua_gettop( Lfrom );
+    if( lua_getfield( Lfrom, idx, "__name" ) == LUA_TNIL ) {
+      return FALSE;
+    }
+    luaL_newmetatable( Lto, lua_tostring(Lfrom, -1) );
+    lua_pop( Lfrom, 1 );
+    if( !luaproc_copytable( Lfrom, Lto ) ) {
+      return FALSE;
+    }
+    lua_pushnil( Lfrom );
+    lua_setfield( Lfrom, idx, "__index" ); /* disable userdata's metatable in Lfrom */
+    lua_pop( Lfrom, 1 ); /* pop metatable */
+    lua_setmetatable( Lto, 2 ); /* set table at 3 as a metatable of 2 */
+  }
+
+  return TRUE;
+}
 /* copies upvalues between lua states' stacks */
 static int luaproc_copyupvalues( lua_State *Lfrom, lua_State *Lto, 
                                  int funcindex ) {
 
   int i = 1;
-  const char *str;
-  size_t len;
+  int type;
+  int copied;
 
   /* test the type of each upvalue and, if it's supported, copy it */
   while ( lua_getupvalue( Lfrom, funcindex, i ) != NULL ) {
-    switch ( lua_type( Lfrom, -1 )) {
-      case LUA_TBOOLEAN:
-        lua_pushboolean( Lto, lua_toboolean( Lfrom, -1 ));
-        break;
-      case LUA_TNUMBER:
-        copynumber( Lto, Lfrom, -1 );
-        break;
-      case LUA_TSTRING: {
-        str = lua_tolstring( Lfrom, -1, &len );
-        lua_pushlstring( Lto, str, len );
-        break;
-      }
-      case LUA_TNIL:
-        lua_pushnil( Lto );
-        break;
+      type = lua_type( Lfrom, -1 );
       /* if upvalue is a table, check whether it is the global environment
          (_ENV) from the source state Lfrom. in case so, push in the stack of
          the destination state Lto its own global environment to be set as the
          corresponding upvalue; otherwise, treat it as a regular non-supported
          upvalue type. */
-      case LUA_TTABLE:
+      if( type == LUA_TTABLE ) {
         lua_pushglobaltable( Lfrom );
         if ( isequal( Lfrom, -1, -2 )) {
           lua_pop( Lfrom, 1 );
           lua_pushglobaltable( Lto );
-          break;
+          copied = TRUE;
         }
         lua_pop( Lfrom, 1 );
-        /* FALLTHROUGH */
-      default: /* value type not supported: table, function, userdata, etc. */
+	copied = FALSE;
+      }
+      if( !copied && !luaproc_copyvalue( Lfrom, Lto, -1, type )) {
+        /* value type not supported: table, etc. */
         lua_pushnil( Lfrom );
         lua_pushfstring( Lfrom, "failed to copy upvalue of unsupported type "
                                 "'%s'", luaL_typename( Lfrom, -2 ));
