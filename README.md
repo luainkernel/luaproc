@@ -46,9 +46,18 @@ them. When recycling is enabled, a new Lua process can be created by loading its
 code in a previously used state from a finished Lua process, instead of creating
 a new state. 
 
+## luaproc in Kernel
+
+This version of luaproc focuses on adding kernel support to the library.
+We have added support for userdata copy between processes, this means that
+for every worker process created with an userdata as upvalue, we create the same userdata
+and metatable, if there's any, inside the worker process.
+
 ## Compatibility
 
 *luaproc* is compatible with Lua 5.1, 5.2 and 5.3.
+
+*luaproc in kernel* is compatible with Lua 5.3.
 
 ## API
 
@@ -134,11 +143,14 @@ part of the 8th ACM SIGPLAN Workshop on Transactional Computing, can be found
 ## Download
 
 GitHub source repository:
-[https://github.com/askyrme/luaproc](https://github.com/askyrme/luaproc)
+[https://github.com/tammela/luaproc](https://github.com/tammela/luaproc)
 
 ## License
 
-Copyright © 2008-2015 Alexandre Skyrme, Noemi Rodriguez, Roberto Ierusalimschy.
+Copyright © 2008-2016 Alexandre Skyrme, Noemi Rodriguez, Roberto Ierusalimschy.
+
+Copyright © 2016-2016 Lourival Vieira Neto, Pedro Tammela.
+
 All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
