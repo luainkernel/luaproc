@@ -1,3 +1,8 @@
+/*
+ ** Threads API layer
+ ** Supported kernels: NetBSD
+ */
+
 #ifndef _LUA_LUAPROC_CONF_H_
 #define _LUA_LUAPROC_CONF_H_
 
@@ -23,6 +28,9 @@
 #define lpthread_mutex_unlock pthread_mutex_unlock
 #define lpthread_mutex_destroy pthread_mutex_destroy
 #define lpthread_join pthread_join
+#define lpthread_self pthread_self
+
+#define WORKER worker
 
 #else
 #error Not Supported
@@ -31,6 +39,31 @@
 #endif
 
 #ifdef LUAPROC_USE_KTHREADS
+#ifdef __unix__
+#include "lpconf.h"
+#define lpthread_t lwp_t
+#define lpthread_mutex_t kmutex_t
+#define lpthread_cond_t kcondvar_t
 
+#define lpthread_create( thread, attr, routine, arg ) kthread_create( PRI_KTHREAD, KTHREAD_MPSAFE|KTHREAD_MUSTJOIN, NULL, routine, arg, thread, "luaproc" )
+#define lpthread_join( thread, unused ) kthread_join( thread )
+#define lpthread_exit kthread_exit
+#define lpthread_mutex_init( mutex, unused ) /* int -> void */ mutex_init( mutex, MUTEX_DEFAULT, IPL_NONE )
+#define lpthread_mutex_destroy mutex_destroy /* int -> void */
+#define lpthread_mutex_lock mutex_enter /* int -> void */
+#define lpthread_mutex_trylock mutex_tryenter
+#define lpthread_mutex_unlock mutex_exit /* int -> void */
+#define lpthread_cond_init(condvar, unused)/* int -> void */ cv_init( condvar, "luaproc" )
+#define lpthread_cond_destroy cv_destroy /* int -> void */
+#define lpthread_cond_wait cv_wait /* int -> void */
+#define lpthread_cond_signal cv_signal /* int -> void */
+#define lpthread_cond_broadcast cv_broadcast /* int -> void */
+#define lpthread_self curlwp
+
+#define WORKER ptr
+
+#else
+#error Not Supported
+#endif
 #endif
 #endif
