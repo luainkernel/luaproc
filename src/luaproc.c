@@ -3,8 +3,9 @@
 ** See Copyright Notice in luaproc.h
 */
 
-#include <string.h>
+#ifdef LUAPROC_USE_PTHREADS
 #include <stdlib.h>
+#endif
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -12,53 +13,17 @@
 #include "luaproc.h"
 #include "lpsched.h"
 #include "lpthread.h"
-
+#if defined(LUAPROC_USE_PTHREADS) || defined(__linux__)
 #define FALSE 0
 #define TRUE  !FALSE
+#endif
 #define LUAPROC_CHANNELS_TABLE "channeltb"
 #define LUAPROC_RECYCLE_MAX 0
-
-#if (LUA_VERSION_NUM == 501)
-
-#define lua_pushglobaltable( L )    lua_pushvalue( L, LUA_GLOBALSINDEX )
-#define luaL_newlib( L, funcs )     { lua_newtable( L ); \
-  luaL_register( L, NULL, funcs ); }
-#define isequal( L, a, b )          lua_equal( L, a, b )
-#define requiref( L, modname, f, glob ) {\
-  lua_pushcfunction( L, f ); /* push module load function */ \
-  lua_pushstring( L, modname );  /* argument to module load function */ \
-  lua_call( L, 1, 1 );  /* call 'f' to load module */ \
-  /* register module in package.loaded table in case 'f' doesn't do so */ \
-  lua_getfield( L, LUA_GLOBALSINDEX, LUA_LOADLIBNAME );\
-  if ( lua_type( L, -1 ) == LUA_TTABLE ) {\
-    lua_getfield( L, -1, "loaded" );\
-    if ( lua_type( L, -1 ) == LUA_TTABLE ) {\
-      lua_getfield( L, -1, modname );\
-      if ( lua_type( L, -1 ) == LUA_TNIL ) {\
-        lua_pushvalue( L, 1 );\
-        lua_setfield( L, -3, modname );\
-      }\
-      lua_pop( L, 1 );\
-    }\
-    lua_pop( L, 1 );\
-  }\
-  lua_pop( L, 1 );\
-  if ( glob ) { /* set global name? */ \
-    lua_setglobal( L, modname );\
-  } else {\
-    lua_pop( L, 1 );\
-  }\
-}
-
-#else
 
 #define isequal( L, a, b )                 lua_compare( L, a, b, LUA_OPEQ )
 #define requiref( L, modname, f, glob ) \
   { luaL_requiref( L, modname, f, glob ); lua_pop( L, 1 ); }
 
-#endif
-
-#if (LUA_VERSION_NUM >= 503)
 #define dump( L, writer, data, strip )     lua_dump( L, writer, data, strip )
 #define copynumber( Lto, Lfrom, i ) {\
   if ( lua_isinteger( Lfrom, i )) {\
@@ -67,12 +32,12 @@
     lua_pushnumber( Lto, lua_tonumber( Lfrom, i ));\
   }\
 }
-#else
-#define dump( L, writer, data, strip )     lua_dump( L, writer, data )
-#define copynumber( Lto, Lfrom, i ) \
-  lua_pushnumber( Lto, lua_tonumber( Lfrom, i ))
-#endif
 
+#if defined(LUAPROC_USE_KTHREADS) && defined(__NetBSD__)
+#ifdef _MODULE
+MODULE(MODULE_CLASS_MISC, luaproc, "lua");
+#endif
+#endif
 /********************
  * global variables *
  *******************/
@@ -259,7 +224,7 @@ static channel *channel_locked_get( const char *chname ) {
      the channel may be destroyed, so it must try to get it again.
   */
   while ((( chan = channel_unlocked_get( chname )) != NULL ) &&
-        ( lpthread_mutex_trylock( &chan->mutex ) != 0 )) {
+        ( lpthread_mutex_trylock( &chan->mutex ) != TRYLOCK_SUCCESS )) {
     lpthread_cond_wait( &chan->can_be_used, &mutex_channel_list );
   }
 
@@ -278,8 +243,6 @@ void luaproc_unlock_channel( channel *chan ) {
 
   /* get exclusive access to channels list */
   lpthread_mutex_lock( &mutex_channel_list );
-  /* release exclusive access to operate on a particular channel */
-  lpthread_mutex_unlock( &chan->mutex );
   /* signal that a particular channel can be used */
   lpthread_cond_signal( &chan->can_be_used );
   /* release exclusive access to channels list */
@@ -651,6 +614,7 @@ static int luaproc_send( lua_State *L ) {
       sched_queue_proc( dstlp );
     }
     /* unlock channel access */
+    lpthread_mutex_unlock( &chan->mutex );
     luaproc_unlock_channel( chan );
     if ( ret == TRUE ) { /* was send successful? */
       lua_pushboolean( L, TRUE );
@@ -664,6 +628,7 @@ static int luaproc_send( lua_State *L ) {
       /* sending process is the parent (main) Lua state - block it */
       mainlp.chan = chan;
       luaproc_queue_sender( &mainlp );
+      lpthread_mutex_unlock( &chan->mutex );
       luaproc_unlock_channel( chan );
       lpthread_mutex_lock( &mutex_mainls );
       lpthread_cond_wait( &cond_mainls_sendrecv, &mutex_mainls );
@@ -677,6 +642,7 @@ static int luaproc_send( lua_State *L ) {
         self->chan   = chan;
       }
       /* yield. channel will be unlocked by the scheduler */
+      lpthread_mutex_unlock( &chan->mutex );
       return lua_yield( L, lua_gettop( L ));
     }
   }
@@ -723,6 +689,7 @@ static int luaproc_receive( lua_State *L ) {
       sched_queue_proc( srclp );
     }
     /* unlock channel access */
+    lpthread_mutex_unlock( &chan->mutex );
     luaproc_unlock_channel( chan );
     /* disconsider channel name, async flag and any other args passed 
        to the receive function when returning its results */
@@ -731,6 +698,7 @@ static int luaproc_receive( lua_State *L ) {
   } else {  /* otherwise test if receive was synchronous or asynchronous */
     if ( lua_toboolean( L, 2 )) { /* asynchronous receive */
       /* unlock channel access */
+      lpthread_mutex_unlock( &chan->mutex );
       luaproc_unlock_channel( chan );
       /* return an error */
       lua_pushnil( L );
@@ -741,6 +709,7 @@ static int luaproc_receive( lua_State *L ) {
         /*  receiving process is the parent (main) Lua state - block it */
         mainlp.chan = chan;
         luaproc_queue_receiver( &mainlp );
+        lpthread_mutex_unlock( &chan->mutex );
         luaproc_unlock_channel( chan );
         lpthread_mutex_lock( &mutex_mainls );
         lpthread_cond_wait( &cond_mainls_sendrecv, &mutex_mainls );
@@ -755,6 +724,7 @@ static int luaproc_receive( lua_State *L ) {
           self->chan   = chan;
         }
         /* yield. channel will be unlocked by the scheduler */
+	lpthread_mutex_unlock( &chan->mutex );
         return lua_yield( L, lua_gettop( L ));
       }
     }
@@ -769,6 +739,7 @@ static int luaproc_create_channel( lua_State *L ) {
   channel *chan = channel_locked_get( chname );
   if (chan != NULL) {  /* does channel exist? */
     /* unlock the channel mutex locked by channel_locked_get */
+    lpthread_mutex_unlock( &chan->mutex );
     luaproc_unlock_channel( chan );
     /* return an error to lua */
     lua_pushnil( L );
@@ -907,6 +878,7 @@ static void luaproc_reglualib( lua_State *L, const char *name,
 
 static void luaproc_openlualibs( lua_State *L ) {
   requiref( L, "_G", luaopen_base, FALSE );
+#ifndef _KERNEL
   requiref( L, "package", luaopen_package, TRUE );
   luaproc_reglualib( L, "io", luaopen_io );
   luaproc_reglualib( L, "os", luaopen_os );
@@ -923,6 +895,9 @@ static void luaproc_openlualibs( lua_State *L ) {
 #if (LUA_VERSION_NUM >= 503)
   luaproc_reglualib( L, "utf8", luaopen_utf8 );
 #endif
+#else
+  luaL_openlibs( L );
+#endif /* _KERNEL */
 
 }
 
@@ -930,7 +905,6 @@ LUALIB_API int luaopen_luaproc( lua_State *L ) {
 
   /* register luaproc functions */
   luaL_newlib( L, luaproc_funcs );
-
   /* wrap main state inside a lua process */
   mainlp.lstate = L;
   mainlp.status = LUAPROC_STATUS_IDLE;
@@ -961,7 +935,7 @@ LUALIB_API int luaopen_luaproc( lua_State *L ) {
   lpthread_mutex_init( &mutex_mainls, NULL );
   lpthread_cond_init( &cond_mainls_sendrecv, NULL );
   /* initialize scheduler */
-  if ( sched_init() == LUAPROC_SCHED_PTHREAD_ERROR ) {
+  if ( luaproc_sched_init() == LUAPROC_SCHED_PTHREAD_ERROR ) {
     luaL_error( L, "failed to create worker" );
   }
 
@@ -975,3 +949,23 @@ static int luaproc_loadlib( lua_State *L ) {
 
   return 1;
 }
+
+#if defined(LUAPROC_USE_KTHREADS) && defined(__NetBSD__)
+#ifdef _MODULE
+static int luaproc_modcmd( modcmd_t cmd, void* ptr ) {
+  int error;
+
+  switch(cmd) {
+    case MODULE_CMD_INIT:
+        error = klua_mod_register( "proc", luaopen_luaproc );
+	break;
+    case MODULE_CMD_FINI:
+	error = klua_mod_unregister( "proc" );
+	break;
+    default:
+	error = ENOTTY;
+    }
+return error;
+}
+#endif /* _MODULE */
+#endif /* __NetBSD__ */
